@@ -1,0 +1,339 @@
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+
+local Window = OrionLib:MakeWindow({Name = "Noob Defense", HidePremium = false, SaveConfig = true, ConfigFolder = "OrionTest"})
+
+local Tab = Window:MakeTab({
+	Name = "Loader",
+	Icon = "rbxassetid://4483345998",
+	PremiumOnly = false
+})
+
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local mouse = player:GetMouse()
+
+local initialHeadSize = Vector3.new(2, 1, 1)
+local resizedHeadSize = Vector3.new(5, 5, 5)
+local resizedTransparency = 0.6
+local initialTransparency = 0
+
+local toggleState1 = false
+local toggleState2 = false
+local aimAssistEnabled = false
+local imageLabelSize = 10
+
+local function modifyHead(npc, isResized)
+    if npc:IsA("Model") then
+        local head = npc:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            if isResized then
+                head.Transparency = resizedTransparency
+                head.Size = resizedHeadSize
+            else
+                head.Transparency = initialTransparency
+                head.Size = initialHeadSize
+            end
+        end
+    end
+end
+
+local function addImageLabelToHead(npc)
+    if npc:IsA("Model") then
+        local head = npc:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            if not head:FindFirstChild("HeadImageLabel") then
+                local billboardGui = Instance.new("BillboardGui")
+                billboardGui.Name = "HeadImageLabel"
+                billboardGui.Adornee = head
+                billboardGui.Size = UDim2.new(4, 0, 4, 0)
+                billboardGui.StudsOffset = Vector3.new(0, 3, 0)
+                billboardGui.AlwaysOnTop = true
+
+                local imageLabel = Instance.new("ImageLabel")
+                imageLabel.Size = UDim2.new(1, 0, 1, 0)
+                imageLabel.BackgroundTransparency = 1
+                imageLabel.Image = "http://www.roblox.com/asset/?id=154589788"
+                imageLabel.Parent = billboardGui
+
+                billboardGui.Parent = head
+            end
+        end
+    end
+end
+
+local function removeImageLabelFromHead(npc)
+    if npc:IsA("Model") then
+        local head = npc:FindFirstChild("Head")
+        if head and head:IsA("BasePart") then
+            local headImageLabel = head:FindFirstChild("HeadImageLabel")
+            if headImageLabel then
+                headImageLabel:Destroy()
+            end
+        end
+    end
+end
+
+local function modifyVoidNPCsForHeadResizing(isResized)
+    local entFolder = Workspace:FindFirstChild("Ent")
+    if not entFolder then
+        warn("Ent folder not found.")
+        return
+    end
+    
+    for _, npc in pairs(entFolder:GetChildren()) do
+        if npc.Name == "Void" then
+            modifyHead(npc, isResized)
+        end
+    end
+end
+
+local function modifyVoidNPCsForImageLabel(addFrame)
+    local entFolder = Workspace:FindFirstChild("Ent")
+    if not entFolder then
+        warn("Ent folder not found.")
+        return
+    end
+    
+    for _, npc in pairs(entFolder:GetChildren()) do
+        if npc.Name == "Void" then
+            if addFrame then
+                addImageLabelToHead(npc)
+            else
+                removeImageLabelFromHead(npc)
+            end
+        end
+    end
+end
+
+local function onNPCAdded(npc)
+    if npc.Name == "Void" then
+        modifyHead(npc, toggleState1)
+        if toggleState2 then
+            addImageLabelToHead(npc)
+        else
+            removeImageLabelFromHead(npc)
+        end
+    end
+end
+
+local function setupNPCFolderListener()
+    local npcFolder = Workspace:FindFirstChild("Ent")
+    if npcFolder then
+        npcFolder.ChildAdded:Connect(onNPCAdded)
+        for _, npc in pairs(npcFolder:GetChildren()) do
+            onNPCAdded(npc)
+        end
+    else
+        warn("NPC folder 'Workspace.Ent' not found.")
+    end
+end
+
+Tab:AddToggle({
+    Name = "Resize NPC Heads",
+    Default = false,
+    Callback = function(Value)
+        toggleState1 = Value
+        modifyVoidNPCsForHeadResizing(Value)
+    end    
+})
+
+Tab:AddToggle({
+    Name = "NPC Esp",
+    Default = false,
+    Callback = function(Value2)
+        toggleState2 = Value2
+        modifyVoidNPCsForImageLabel(Value2)
+    end    
+})
+
+setupNPCFolderListener()
+
+Workspace.ChildAdded:Connect(function(child)
+    if child.Name == "Ent" and child:IsA("Folder") then
+        setupNPCFolderListener()
+    end
+end)
+
+local function continuousMonitor()
+    while true do
+        local entFolder = Workspace:FindFirstChild("Ent")
+        if entFolder then
+            for _, npc in pairs(entFolder:GetChildren()) do
+                if npc.Name == "Void" then
+                    modifyHead(npc, toggleState1)
+                    if toggleState2 then
+                        addImageLabelToHead(npc)
+                    else
+                        removeImageLabelFromHead(npc)
+                    end
+                end
+            end
+        end
+        wait(0.1)
+    end
+end
+
+spawn(continuousMonitor)
+
+local function createFOVImageLabel()
+    local screenGui = player:WaitForChild("PlayerGui"):FindFirstChild("ScreenGui")
+    if not screenGui then
+        screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "ScreenGui"
+        screenGui.Parent = player:WaitForChild("PlayerGui")
+    end
+
+    local imageLabel = Instance.new("ImageLabel")
+    imageLabel.Size = UDim2.new(0, imageLabelSize, 0, imageLabelSize)
+    imageLabel.BackgroundTransparency = 1
+    imageLabel.Image = "http://www.roblox.com/asset/?id=6835970470"
+    imageLabel.Parent = screenGui
+    imageLabel.Visible = aimAssistEnabled
+
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0.5, 0)
+    uiCorner.Parent = imageLabel
+
+    return imageLabel
+end
+
+local imageLabel = createFOVImageLabel()
+
+local function updateImageLabelSize(size)
+    imageLabelSize = size
+    imageLabel.Size = UDim2.new(0, imageLabelSize, 0, imageLabelSize)
+end
+
+local function getNPCsInArea()
+    local npcs = {}
+    local entFolder = Workspace:FindFirstChild("Ent")
+    if entFolder then
+        for _, npc in pairs(entFolder:GetChildren()) do
+            if npc:IsA("Model") and npc:FindFirstChild("Head") then
+                local head = npc.Head
+                local headPos = head.Position
+                local screenPoint = Workspace.CurrentCamera:WorldToScreenPoint(headPos)
+                local dist = (Vector2.new(screenPoint.X, screenPoint.Y) - Vector2.new(mouse.X, mouse.Y)).Magnitude
+                if dist <= imageLabelSize / 2 then
+                    local ray = Ray.new(Workspace.CurrentCamera.CFrame.Position, (head.Position - Workspace.CurrentCamera.CFrame.Position).unit * 500)
+                    local part = Workspace:FindPartOnRay(ray, player.Character, false, true)
+                    if part and part:IsDescendantOf(npc) then
+                        table.insert(npcs, npc)
+                    end
+                end
+            end
+        end
+    end
+    return npcs
+end
+
+local function aimAtNPC(npc)
+    if npc and npc:FindFirstChild("Humanoid") and npc.Humanoid.Health > 0 then
+        local head = npc.Head
+        local aimPos = head.Position
+        Workspace.CurrentCamera.CFrame = CFrame.new(Workspace.CurrentCamera.CFrame.Position, aimPos)
+    end
+end
+
+local function monitorNPCs()
+    while true do
+        if imageLabel.Visible then
+            local npcs = getNPCsInArea()
+            if #npcs > 0 then
+                aimAtNPC(npcs[1])
+            end
+        end
+        wait() -- Check every frame
+    end
+end
+
+spawn(monitorNPCs)
+
+Tab:AddToggle({
+    Name = "Aim Assist",
+    Default = false,
+    Callback = function(Value)
+        aimAssistEnabled = Value
+        imageLabel.Visible = Value
+    end    
+})
+
+Tab:AddSlider({
+    Name = "FOV Size",
+    Min = 0,
+    Max = 1000,
+    Default = 10,
+    Color = Color3.fromRGB(255,255,255),
+    Increment = 1,
+    ValueName = "Size",
+    Callback = function(Value)
+        updateImageLabelSize(Value)
+    end    
+})
+
+RunService.RenderStepped:Connect(function()
+    if aimAssistEnabled then
+        imageLabel.Position = UDim2.new(0, mouse.X - imageLabelSize / 2, 0, mouse.Y - imageLabelSize / 2)
+    end
+end)
+
+player.CharacterAdded:Connect(function()
+    wait(1) -- Wait a moment to ensure character is fully loaded
+    imageLabel:Destroy()
+    imageLabel = createFOVImageLabel()
+end)
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+local originalColors = {}
+local rainbowConnections = {}
+
+local function turnCharacterIntoRainbow()
+    if not LocalPlayer.Character then return end
+    for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+        if part:IsA("BasePart") then
+            originalColors[part] = part.Color
+            local hue = 0
+            local rainbowConnection
+            rainbowConnection = game:GetService("RunService").RenderStepped:Connect(function()
+                hue = hue + 0.01
+                if hue > 1 then
+                    hue = 0
+                end
+                part.Color = Color3.fromHSV(hue, 1, 1)
+            end)
+            rainbowConnections[part] = rainbowConnection
+        end
+    end
+end
+
+local function revertCharacterToWhite()
+    if not LocalPlayer.Character then return end
+    for _, part in pairs(LocalPlayer.Character:GetChildren()) do
+        if part:IsA("BasePart") then
+            part.Color = Color3.new(1, 1, 1)
+            local rainbowConnection = rainbowConnections[part]
+            if rainbowConnection then
+                rainbowConnection:Disconnect()
+                rainbowConnections[part] = nil
+            end
+        end
+    end
+end
+
+Tab:AddToggle({
+    Name = "Rainbow Character",
+    Default = false,
+    Callback = function(Value)
+        if Value then
+            turnCharacterIntoRainbow()
+        else
+            revertCharacterToWhite()
+        end
+    end    
+})
